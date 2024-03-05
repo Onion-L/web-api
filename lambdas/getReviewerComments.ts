@@ -9,7 +9,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
     console.log("Event: ", event);
     const parameters = event?.pathParameters;
     const movieId = parameters?.movieId ? parseInt(parameters.movieId) : undefined;
-    const reviewerName = parameters?.reviewerName;
     const queryStringParameters = event?.queryStringParameters;
     const minRating = queryStringParameters?.minRating ? parseInt(queryStringParameters.minRating) : undefined;
 
@@ -48,16 +47,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
       let result = [];
       for (let i = 0; i < reviews.length; i++) {
         if(reviews[i].author_details.rating >= minRating) {
-          result.push(reviews[i])
-        }
-      }
-      body.data = result;
-    }
-
-    if(reviewerName) {
-      let result = [];
-      for (let i = 0; i < reviews.length; i++) {
-        if(reviews[i].author === reviewerName) {
           result.push(reviews[i])
         }
       }

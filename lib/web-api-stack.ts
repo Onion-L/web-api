@@ -40,6 +40,18 @@ export class WebApiStack extends cdk.Stack {
       },
     });
 
+    const getReviewerCommentsFn = new lambdanode.NodejsFunction(this, "getReviewerCommentsFn", {
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/getReviewerComments.ts`,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      environment: {
+        TABLE_NAME: moviesReviewTable.tableName,
+        REGION: "eu-west-1",
+      },
+    });
+
     const newMovieReviewFn = new lambdanode.NodejsFunction(this, "AddMovieReviewFn", {
       architecture: lambda.Architecture.ARM_64,
       runtime: lambda.Runtime.NODEJS_16_X,
@@ -70,6 +82,7 @@ export class WebApiStack extends cdk.Stack {
 
     moviesReviewTable.grantReadData(getMovieReviewFn);
     moviesReviewTable.grantReadWriteData(newMovieReviewFn);
+    moviesReviewTable.grantReadWriteData(getReviewerCommentsFn);
 
 
     const api = new apig.RestApi(this, "RestAPI", {
@@ -90,6 +103,12 @@ export class WebApiStack extends cdk.Stack {
 
     const moviesReviewEndpoint = moviesEndpoint.addResource("{movieId}").addResource("reviews");
     moviesReviewEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getMovieReviewFn, { proxy: true })
+    );
+
+    const reviewerEndpoint = moviesReviewEndpoint.addResource("{reviewerName}");
+    reviewerEndpoint.addMethod(
       "GET",
       new apig.LambdaIntegration(getMovieReviewFn, { proxy: true })
     );
