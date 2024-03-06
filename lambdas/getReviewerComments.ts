@@ -38,7 +38,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
       let result = [];
       for (let i = 0; i < reviews.length; i++) {
         for (let j = 0; j < reviews[i].results.length; j++) {
-          if(reviews[i].results[j].author_details.name === reviewerName) {
+          if(reviews[i].results[j].author_details.name === reviewerName || reviews[i].results[j].author_details.username === reviewerName) {
             result.push(reviews[i].results[j]);
           }
         }
