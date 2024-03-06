@@ -113,6 +113,13 @@ export class WebApiStack extends cdk.Stack {
       new apig.LambdaIntegration(getMovieReviewFn, { proxy: true })
     );
 
+/*    const yearEndpoint = moviesReviewEndpoint.addResource("{year}");
+    yearEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getMovieReviewFn, { proxy: true })
+    );
+*/
+
     const allMoviesReviewEndpoint = moviesEndpoint.addResource('reviews');
     allMoviesReviewEndpoint.addMethod(
       "POST",

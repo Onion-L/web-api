@@ -12,6 +12,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
     const reviewerName = parameters?.reviewerName;
     const queryStringParameters = event?.queryStringParameters;
     const minRating = queryStringParameters?.minRating ? parseInt(queryStringParameters.minRating) : undefined;
+    const year = queryStringParameters?.year ? parseInt(queryStringParameters.year) : undefined;
+
+
 
     if (!movieId) {
       return {
@@ -58,6 +61,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
       let result = [];
       for (let i = 0; i < reviews.length; i++) {
         if(reviews[i].author === reviewerName) {
+          result.push(reviews[i])
+        }
+      }
+      body.data = result;
+    }
+
+    if(year) {
+      let result = [];
+      for (let i = 0; i < reviews.length; i++) {
+        if(new Date(reviews[i].updated_at).getFullYear() === year) {
           result.push(reviews[i])
         }
       }
