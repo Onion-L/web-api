@@ -82,7 +82,7 @@ export class WebApiStack extends cdk.Stack {
 
     moviesReviewTable.grantReadData(getMovieReviewFn);
     moviesReviewTable.grantReadWriteData(newMovieReviewFn);
-    moviesReviewTable.grantReadWriteData(getReviewerCommentsFn);
+    moviesReviewTable.grantReadData(getReviewerCommentsFn);
 
 
     const api = new apig.RestApi(this, "RestAPI", {
@@ -124,6 +124,12 @@ export class WebApiStack extends cdk.Stack {
     allMoviesReviewEndpoint.addMethod(
       "POST",
       new apig.LambdaIntegration(newMovieReviewFn, { proxy: true })
+    );
+
+    const reviewerCommentEndpoint = api.root.addResource("reviews").addResource("{reviewerName}");
+    reviewerCommentEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getReviewerCommentsFn, { proxy: true })
     );
     
   }

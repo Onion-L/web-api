@@ -1,6 +1,6 @@
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand ,ScanCommand} from "@aws-sdk/lib-dynamodb";
 
 const ddbDocClient = createDDbDocClient();
 
@@ -8,46 +8,39 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
   try {
     console.log("Event: ", event);
     const parameters = event?.pathParameters;
-    const movieId = parameters?.movieId ? parseInt(parameters.movieId) : undefined;
+    const reviewerName = parameters?.reviewerName;
     const queryStringParameters = event?.queryStringParameters;
-    const minRating = queryStringParameters?.minRating ? parseInt(queryStringParameters.minRating) : undefined;
+    // const minRating = queryStringParameters?.minRating ? parseInt(queryStringParameters.minRating) : undefined;
 
-    if (!movieId) {
-      return {
-        statusCode: 404,
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ Message: "Missing movie Id" }),
-      };
-    }
 
     const commandOutput = await ddbDocClient.send(
-      new GetCommand({
+      new ScanCommand({
         TableName: process.env.TABLE_NAME,
-        Key: { id: movieId },
       })
     );
     console.log("GetCommand response: ", commandOutput);
-    if (!commandOutput.Item) {
+    if (!commandOutput.Items) {
       return {
         statusCode: 404,
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ Message: "Invalid movie Id" }),
+        body: JSON.stringify({ Message: "review not found" }),
       };
     }
-    let reviews = commandOutput.Item.results;
+    let reviews = commandOutput.Items;
+
     let body = {
       data: reviews,
     };
 
-    if(minRating) {
+    if(reviewerName) {
       let result = [];
       for (let i = 0; i < reviews.length; i++) {
-        if(reviews[i].author_details.rating >= minRating) {
-          result.push(reviews[i])
+        for (let j = 0; j < reviews[i].results.length; j++) {
+          if(reviews[i].results[j].author_details.name === reviewerName) {
+            result.push(reviews[i].results[j]);
+          }
         }
       }
       body.data = result;
