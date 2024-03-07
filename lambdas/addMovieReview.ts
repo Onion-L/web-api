@@ -1,13 +1,13 @@
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
-import { type Result } from "../shared/types";
+import { type Review } from "../shared/types";
 import { v4 as uuidv4 } from 'uuid';
 import Ajv from "ajv";
 import schema from "../shared/types.schema.json";
 
 const ajv = new Ajv();
-const isValidBodyParams = ajv.compile(schema.definitions["Result"] || {});
+const isValidBodyParams = ajv.compile(schema.definitions["Review"] || {});
 
 const ddbDocClient = createDDbDocClient();
 
@@ -15,7 +15,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
   try {
     // Print Event
     console.log("Event: ", event);
-    const body = event.body ? JSON.parse(event.body) as Result : undefined;
+    const body = event.body ? JSON.parse(event.body) as Review : undefined;
     if (!body) {
       return {
         statusCode: 500,
@@ -32,50 +32,37 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
             "content-type": "application/json",
           },
           body: JSON.stringify({
-            message: `Incorrect type. Must match Result schema`,
-            schema: schema.definitions["Result"],
+            message: `Incorrect type. Must match Review schema`,
+            schema: schema.definitions["Review"],
           }),
         };
       }
 
-      const newComment: Result = {
-        ...body,
-        created_at: new Date().toISOString(), 
-        id: uuidv4(), 
-        updated_at: new Date().toISOString(), 
-      };
+    // const movieId = body.id;
+    // let movieData;
+    // if(movieId) {
+    //   movieData = await ddbDocClient.send(
+    //     new GetCommand({
+    //       TableName: process.env.TABLE_NAME,
+    //       Key: { id: movieId }
+    //     })
+    //   );
+    // }
+    
+
+    // let newReview = body;
+
+    // if (movieData?.Item) {
+    //   newReview = movieData.Item.results.push(body.results);
+    // }
       
-      let {id} = body;
-      
-
-      const movieData = await ddbDocClient.send(
-        new GetCommand({
-          TableName: process.env.TABLE_NAME,
-          Key: { id: id },
-        })
-      );
-
-      if (!movieData.Item) {
-        return {
-          statusCode: 404,
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ Message: "Invalid movie Id" }),
-        };
-      }
-
-      let newMovieData =  movieData.Item.results.push(newComment);
-
-      console.log("Data",newMovieData);
-      
-
     const commandOutput = await ddbDocClient.send(
       new PutCommand({
         TableName: process.env.TABLE_NAME,
-        Item: newMovieData,
+        Item: body,
       })
     );
+
     return {
       statusCode: 201,
       headers: {

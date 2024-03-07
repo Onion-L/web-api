@@ -130,7 +130,6 @@ export class WebApiStack extends cdk.Stack {
     reviewerCommentEndpoint.addMethod(
       "GET",
       new apig.LambdaIntegration(getReviewerCommentsFn, { proxy: true })
-    );
-    
+    ); 
   }
 }
