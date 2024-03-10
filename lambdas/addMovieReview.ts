@@ -1,6 +1,6 @@
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, UpdateCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
 import { type Review } from "../shared/types";
 import Ajv from "ajv";
 import schema from "../shared/types.schema.json";
@@ -36,28 +36,21 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
           }),
         };
       }
-
-    const movieId = body.id;
-    let movieData;
-    if(movieId) {
-      movieData = await ddbDocClient.send(
-        new GetCommand({
-          TableName: process.env.TABLE_NAME,
-          Key: { id: movieId }
-        })
-      );
-    }
-    
-    let newReview = body;
-
-    if (movieData?.Item) {
-      newReview = movieData.Item.results.push(body.results);
-    }
+      const movieId = body.id;
+      const newResult = body.results;
       
     const commandOutput = await ddbDocClient.send(
-      new PutCommand({
+      new UpdateCommand({
         TableName: process.env.TABLE_NAME,
-        Item: newReview,
+    Key: { id: movieId },
+    UpdateExpression: "SET #results = list_append(if_not_exists(#results, :empty_list), :newResult)",
+    ExpressionAttributeNames: {
+      "#results": "results"
+    },
+    ExpressionAttributeValues: {
+      ":newResult": [newResult], 
+      ":empty_list": []
+    },
       })
     );
 
