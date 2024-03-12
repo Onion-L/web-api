@@ -6,11 +6,28 @@ import * as custom from "aws-cdk-lib/custom-resources";
 import * as apig from "aws-cdk-lib/aws-apigateway";
 import {reviews} from '../seed/reviews';
 import {generateBatch} from '../shared/util';
+import { UserPool } from "aws-cdk-lib/aws-cognito";
+import { AuthApi } from './auth-api'
+import {AppApi } from './app-api'
 import { Construct } from 'constructs';
 
 export class WebApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    const userPool = new UserPool(this, "UserPool", {
+      signInAliases: { username: true, email: true },
+      selfSignUpEnabled: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const userPoolId = userPool.userPoolId;
+
+    const appClient = userPool.addClient("AppClient", {
+      authFlows: { userPassword: true },
+    });
+
+    const userPoolClientId = appClient.userPoolClientId;
 
      // Tables 
      const moviesReviewTable = new dynamodb.Table(this, "MoviesReviewTable", {
@@ -116,6 +133,17 @@ export class WebApiStack extends cdk.Stack {
         allowOrigins: ["*"],
       },
     });
+
+    new AuthApi(this, 'AuthServiceApi', {
+      userPoolId: userPoolId,
+      userPoolClientId: userPoolClientId,
+    });
+
+    new AppApi(this, 'AppApi', {
+      userPoolId: userPoolId,
+      userPoolClientId: userPoolClientId,
+    } );
+
 
 
     const moviesEndpoint = api.root.addResource("movies");
