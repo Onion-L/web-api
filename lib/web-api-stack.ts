@@ -6,29 +6,33 @@ import * as custom from "aws-cdk-lib/custom-resources";
 import * as apig from "aws-cdk-lib/aws-apigateway";
 import {reviews} from '../seed/reviews';
 import {generateBatch} from '../shared/util';
-
 import { Construct } from 'constructs';
+
 export class WebApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
      // Tables 
-     const moviesReviewTable = new dynamodb.Table(this, "MoviesTable", {
+     const moviesReviewTable = new dynamodb.Table(this, "MoviesReviewTable", {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       partitionKey: { name: "id", type: dynamodb.AttributeType.NUMBER },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       tableName: "MoviesReview",
     });
 
-    const WebApiFn = new lambdanode.NodejsFunction(this, "WebApiFn", {
+    const getAllReviewsFn = new lambdanode.NodejsFunction(this, "getAllReviewsFn", {
       architecture: lambda.Architecture.ARM_64,
-      runtime: lambda.Runtime.NODEJS_16_X,
-      entry: `${__dirname}/../lambdas/webApi.ts`,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/getAllReviews.ts`,
       timeout: cdk.Duration.seconds(10),
       memorySize: 128,
+      environment: {
+        TABLE_NAME: moviesReviewTable.tableName,
+        REGION: "eu-west-1",
+      },
     });
   
-    const getMovieReviewFn = new lambdanode.NodejsFunction(this, "DeleteMovieFn", {
+    const getMovieReviewFn = new lambdanode.NodejsFunction(this, "getMovieReviewFn", {
       architecture: lambda.Architecture.ARM_64,
       runtime: lambda.Runtime.NODEJS_18_X,
       entry: `${__dirname}/../lambdas/getMoviesReview.ts`,
@@ -93,8 +97,9 @@ export class WebApiStack extends cdk.Stack {
     });
 
     moviesReviewTable.grantReadData(getMovieReviewFn);
-    moviesReviewTable.grantReadWriteData(newMovieReviewFn);
     moviesReviewTable.grantReadData(getReviewerCommentsFn);
+    moviesReviewTable.grantReadData(getAllReviewsFn);
+    moviesReviewTable.grantReadWriteData(newMovieReviewFn);
     moviesReviewTable.grantReadWriteData(updateMovieReviewFn);
 
 
@@ -142,6 +147,10 @@ export class WebApiStack extends cdk.Stack {
     allMoviesReviewEndpoint.addMethod(
       "POST",
       new apig.LambdaIntegration(newMovieReviewFn, { proxy: true })
+    );
+    allMoviesReviewEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(getAllReviewsFn, { proxy: true })
     );
 
     const reviewerCommentEndpoint = api.root.addResource("reviews").addResource("{reviewerName}");
