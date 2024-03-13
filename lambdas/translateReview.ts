@@ -1,6 +1,7 @@
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import * as AWS from "aws-sdk";
 
 const ddbDocClient = createDDbDocClient();
 
@@ -12,9 +13,12 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
     const reviewerName = parameters?.reviewerName;
     
     const queryStringParameters = event?.queryStringParameters;
-    const minRating = queryStringParameters?.minRating ? parseInt(queryStringParameters.minRating) : undefined;
-    const year = queryStringParameters?.year ? parseInt(queryStringParameters.year) : undefined;
+    const language = queryStringParameters?.language;
 
+    const translate = new AWS.Translate();
+
+
+    
 
     if (!movieId) {
       return {
@@ -47,38 +51,28 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
       data: reviews,
     };
 
-    if(minRating) {
-      let result = [];
-      for (let i = 0; i < reviews.length; i++) {
-        if(reviews[i].author_details.rating >= minRating) {
-          result.push(reviews[i])
-        }
-      }
-      body.data = result;
-    }
-
     if(reviewerName) {
       let result = [];
       for (let i = 0; i < reviews.length; i++) {
-        
-        if(reviews[i].author_details.name === reviewerName || reviews[i].author_details.username === reviewerName) {
+        if(reviews[i].author === reviewerName) {
           result.push(reviews[i])
         }
       }
       body.data = result;
     }
 
-    if(year) {
-      let result = [];
-      for (let i = 0; i < reviews.length; i++) {
-        if(new Date(reviews[i].updated_at).getFullYear() === year) {
-          result.push(reviews[i])
-        }
-      }
-      body.data = result;
+    if(language) {
+            const params: AWS.Translate.Types.TranslateTextRequest = {
+                SourceLanguageCode: 'en', 
+                TargetLanguageCode: language, 
+                Text:body.data[0].content
+              };
+                const response = await translate.translateText(params).promise();
+                const translatedMessage =  response.TranslatedText;
+                body.data[0].content = translatedMessage; 
     }
 
-
+   
     // Return Response
     return {
       statusCode: 200,

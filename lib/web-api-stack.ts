@@ -8,7 +8,6 @@ import {reviews} from '../seed/reviews';
 import {generateBatch} from '../shared/util';
 import { UserPool } from "aws-cdk-lib/aws-cognito";
 import { AuthApi } from './auth-api'
-import {AppApi } from './app-api'
 import { Construct } from 'constructs';
 
 export class WebApiStack extends cdk.Stack {
@@ -37,64 +36,48 @@ export class WebApiStack extends cdk.Stack {
       tableName: "MoviesReview",
     });
 
-    const getAllReviewsFn = new lambdanode.NodejsFunction(this, "getAllReviewsFn", {
+    const appCommonFnProps = {
       architecture: lambda.Architecture.ARM_64,
-      runtime: lambda.Runtime.NODEJS_18_X,
-      entry: `${__dirname}/../lambdas/getAllReviews.ts`,
       timeout: cdk.Duration.seconds(10),
       memorySize: 128,
+      runtime: lambda.Runtime.NODEJS_16_X,
+      handler: "handler",
       environment: {
         TABLE_NAME: moviesReviewTable.tableName,
-        REGION: "eu-west-1",
+        USER_POOL_ID: userPoolId,
+        CLIENT_ID: userPoolClientId,
+        REGION: cdk.Aws.REGION,
       },
+    };
+
+    const getAllReviewsFn = new lambdanode.NodejsFunction(this, "getAllReviewsFn", {
+      ...appCommonFnProps,
+      entry: `${__dirname}/../lambdas/getAllReviews.ts`
     });
   
     const getMovieReviewFn = new lambdanode.NodejsFunction(this, "getMovieReviewFn", {
-      architecture: lambda.Architecture.ARM_64,
-      runtime: lambda.Runtime.NODEJS_18_X,
-      entry: `${__dirname}/../lambdas/getMoviesReview.ts`,
-      timeout: cdk.Duration.seconds(10),
-      memorySize: 128,
-      environment: {
-        TABLE_NAME: moviesReviewTable.tableName,
-        REGION: "eu-west-1",
-      },
+      ...appCommonFnProps,
+      entry: `${__dirname}/../lambdas/getMoviesReview.ts`
     });
 
     const getReviewerCommentsFn = new lambdanode.NodejsFunction(this, "getReviewerCommentsFn", {
-      architecture: lambda.Architecture.ARM_64,
-      runtime: lambda.Runtime.NODEJS_18_X,
-      entry: `${__dirname}/../lambdas/getReviewerComments.ts`,
-      timeout: cdk.Duration.seconds(10),
-      memorySize: 128,
-      environment: {
-        TABLE_NAME: moviesReviewTable.tableName,
-        REGION: "eu-west-1",
-      },
+      ...appCommonFnProps,
+      entry: `${__dirname}/../lambdas/getReviewerComments.ts`
     });
 
     const newMovieReviewFn = new lambdanode.NodejsFunction(this, "AddMovieReviewFn", {
-      architecture: lambda.Architecture.ARM_64,
-      runtime: lambda.Runtime.NODEJS_16_X,
-      entry: `${__dirname}/../lambdas/addMovieReview.ts`,
-      timeout: cdk.Duration.seconds(10),
-      memorySize: 128,
-      environment: {
-        TABLE_NAME: moviesReviewTable.tableName,
-        REGION: "eu-west-1",
-      },
+      ...appCommonFnProps,
+      entry: `${__dirname}/../lambdas/addMovieReview.ts`
     });
 
     const updateMovieReviewFn = new lambdanode.NodejsFunction(this, "updateMovieReviewFn", {
-      architecture: lambda.Architecture.ARM_64,
-      runtime: lambda.Runtime.NODEJS_16_X,
-      entry: `${__dirname}/../lambdas/updateReview.ts`,
-      timeout: cdk.Duration.seconds(10),
-      memorySize: 128,
-      environment: {
-        TABLE_NAME: moviesReviewTable.tableName,
-        REGION: "eu-west-1",
-      },
+      ...appCommonFnProps,
+      entry: `${__dirname}/../lambdas/updateReview.ts`
+    });
+
+    const reviewTranslateFn =new lambdanode.NodejsFunction(this, "reviewTranslateFn", {
+      ...appCommonFnProps,
+      entry: `${__dirname}/../lambdas/translateReview.ts`
     });
 
     new custom.AwsCustomResource(this, "moviesddbInitData", {
@@ -116,10 +99,16 @@ export class WebApiStack extends cdk.Stack {
     moviesReviewTable.grantReadData(getMovieReviewFn);
     moviesReviewTable.grantReadData(getReviewerCommentsFn);
     moviesReviewTable.grantReadData(getAllReviewsFn);
+    moviesReviewTable.grantReadWriteData(reviewTranslateFn);
     moviesReviewTable.grantReadWriteData(newMovieReviewFn);
     moviesReviewTable.grantReadWriteData(updateMovieReviewFn);
 
 
+
+    const authorizerFn = new lambdanode.NodejsFunction(this, "AuthorizerFn", {
+      ...appCommonFnProps,
+      entry: "./lambdas/auth/authorizer.ts",
+    });
 
     const api = new apig.RestApi(this, "RestAPI", {
       description: "demo api",
@@ -139,12 +128,15 @@ export class WebApiStack extends cdk.Stack {
       userPoolClientId: userPoolClientId,
     });
 
-    new AppApi(this, 'AppApi', {
-      userPoolId: userPoolId,
-      userPoolClientId: userPoolClientId,
-    } );
-
-
+    const requestAuthorizer = new apig.RequestAuthorizer(
+      this,
+      "RequestAuthorizer",
+      {
+        identitySources: [apig.IdentitySource.header("cookie")],
+        handler: authorizerFn,
+        resultsCacheTtl: cdk.Duration.minutes(0),
+      }
+    );
 
     const moviesEndpoint = api.root.addResource("movies");
 
@@ -161,7 +153,11 @@ export class WebApiStack extends cdk.Stack {
     );
     reviewerEndpoint.addMethod(
       "PUT",
-      new apig.LambdaIntegration(updateMovieReviewFn, { proxy: true })
+      new apig.LambdaIntegration(updateMovieReviewFn, { proxy: true }),
+      {
+        authorizer: requestAuthorizer,
+        authorizationType: apig.AuthorizationType.CUSTOM,
+      }
     );
 
 /*    const yearEndpoint = moviesReviewEndpoint.addResource("{year}");
@@ -174,7 +170,11 @@ export class WebApiStack extends cdk.Stack {
     const allMoviesReviewEndpoint = moviesEndpoint.addResource('reviews');
     allMoviesReviewEndpoint.addMethod(
       "POST",
-      new apig.LambdaIntegration(newMovieReviewFn, { proxy: true })
+      new apig.LambdaIntegration(newMovieReviewFn, { proxy: true }),
+      {
+        authorizer: requestAuthorizer,
+        authorizationType: apig.AuthorizationType.CUSTOM,
+      }
     );
     allMoviesReviewEndpoint.addMethod(
       "GET",
@@ -186,5 +186,11 @@ export class WebApiStack extends cdk.Stack {
       "GET",
       new apig.LambdaIntegration(getReviewerCommentsFn, { proxy: true })
     ); 
+    const translateEndpoint = reviewerCommentEndpoint.addResource("{movieId}").addResource("translation");
+    translateEndpoint.addMethod(
+      "GET",
+      new apig.LambdaIntegration(reviewTranslateFn, { proxy: true })
+
+    )
   }
 }

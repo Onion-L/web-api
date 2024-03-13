@@ -46,7 +46,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
       body.data = result;
     }
 
-
     // Return Response
     return {
       statusCode: 200,
