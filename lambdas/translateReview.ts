@@ -16,10 +16,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
     const language = queryStringParameters?.language;
 
     const translate = new AWS.Translate();
-
-
     
-
     if (!movieId) {
       return {
         statusCode: 404,

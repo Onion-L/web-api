@@ -35,20 +35,20 @@ export class WebApiStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       tableName: "MoviesReview",
     });
-
-    const appCommonFnProps = {
+   
+    const appCommonFnProps =  {
       architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
       timeout: cdk.Duration.seconds(10),
       memorySize: 128,
-      runtime: lambda.Runtime.NODEJS_16_X,
-      handler: "handler",
       environment: {
         TABLE_NAME: moviesReviewTable.tableName,
         USER_POOL_ID: userPoolId,
         CLIENT_ID: userPoolClientId,
-        REGION: cdk.Aws.REGION,
-      },
-    };
+        REGION: 'eu-west-1',
+      }
+    }
+
 
     const getAllReviewsFn = new lambdanode.NodejsFunction(this, "getAllReviewsFn", {
       ...appCommonFnProps,
@@ -61,8 +61,17 @@ export class WebApiStack extends cdk.Stack {
     });
 
     const getReviewerCommentsFn = new lambdanode.NodejsFunction(this, "getReviewerCommentsFn", {
-      ...appCommonFnProps,
-      entry: `${__dirname}/../lambdas/getReviewerComments.ts`
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/getReviewerComments.ts`,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      environment: {
+        TABLE_NAME: moviesReviewTable.tableName,
+        USER_POOL_ID: userPoolId,
+        CLIENT_ID: userPoolClientId,
+        REGION: 'eu-west-1',
+      }
     });
 
     const newMovieReviewFn = new lambdanode.NodejsFunction(this, "AddMovieReviewFn", {

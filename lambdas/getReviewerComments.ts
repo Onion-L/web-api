@@ -19,6 +19,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
       })
     );
     console.log("GetCommand response: ", commandOutput);
+    
     if (!commandOutput.Items) {
       return {
         statusCode: 404,
@@ -38,13 +39,18 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
       let result = [];
       for (let i = 0; i < reviews.length; i++) {
         for (let j = 0; j < reviews[i].results.length; j++) {
-          if(reviews[i].results[j].author_details.name === reviewerName || reviews[i].results[j].author_details.username === reviewerName) {
+          const authorDetails = reviews[i].results[j].author_details;
+          if(authorDetails?.name === reviewerName || authorDetails?.username === reviewerName) {
             result.push(reviews[i].results[j]);
           }
         }
       }
       body.data = result;
     }
+
+    console.log("Table Name:", process.env.TABLE_NAME);
+    console.log("Results:", body.data);
+    console.log("Command Output:", commandOutput);
 
     // Return Response
     return {
@@ -61,7 +67,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {    
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ error }),
+      body: JSON.stringify({ error: error.message })
     };
   }
 };

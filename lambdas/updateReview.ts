@@ -93,12 +93,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
       })
     );
 
+    console.log("Table Name:", process.env.TABLE_NAME);
+    console.log("Updated Results:", updatedResults);
+    console.log("Command Output:", commandOutput);
+
     return {
       statusCode: 201,
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ message: "Movie added" }),
+      body: JSON.stringify({ message: "Movie review updated" }),
     };
   } catch (error: any) {
     console.log(JSON.stringify(error));
